@@ -87,8 +87,10 @@ class GeneralModel {
 
 class BattleFieldModel extends ChangeNotifier {
   List<GeneralModel> generals = [];
-  BattleFieldModel(int generalCount) {
-    generals.addAll(getNames(generalCount).map(GeneralModel.fromName));
+  static const int initialGeneralCount = 4;
+  BattleFieldModel() : this.createGenerals(initialGeneralCount);
+  BattleFieldModel.createGenerals(int generalCount) {
+    setGeneralCount(generalCount);
     generals[0].rank = Rank.commander;
   }
   int get traitorCount =>
@@ -104,7 +106,7 @@ class BattleFieldModel extends ChangeNotifier {
   }
 
   void setGeneralCount(int newCount) {
-    if (newCount < 1) {
+    if (newCount < 1 || newCount > 9) {
       return;
     } else if (newCount < generals.length) {
       generals = generals.getRange(0, newCount).toList();
@@ -113,6 +115,7 @@ class BattleFieldModel extends ChangeNotifier {
       generals.addAll(getNames(newCount)
           .getRange(generals.length, newCount)
           .map(GeneralModel.fromName));
+      notifyListeners();
     }
   }
 }

@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
       ),
       home: ChangeNotifierProvider(
-        create: (context) => BattleFieldModel(4),
+        create: (context) => BattleFieldModel(),
         child: const Scaffold(body: BattleField()),
       ),
     );
@@ -39,6 +39,9 @@ class BattleField extends StatefulWidget {
 }
 
 class _BattleFieldState extends State<BattleField> {
+  final _generalCountInput = TextEditingController(
+      text: BattleFieldModel.initialGeneralCount.toString());
+
   static Alignment getAlignment(int i, int l, [double radius = 0.75]) {
     final rotateBy = (pi * 2) / l * i - pi / 2;
     return Alignment(cos(rotateBy) * radius, sin(rotateBy) * radius);
@@ -71,8 +74,13 @@ class _BattleFieldState extends State<BattleField> {
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(1)
                     ],
-                    controller: TextEditingController(
-                        text: field.generals.length.toString()),
+                    onChanged: (content) {
+                      final result = int.tryParse(content);
+                      if (result != null) {
+                        field.setGeneralCount(result);
+                      }
+                    },
+                    controller: _generalCountInput,
                   ),
                 ),
                 Text(", number of traitors (m) = ${field.traitorCount}"),
