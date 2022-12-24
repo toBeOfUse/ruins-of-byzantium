@@ -5,6 +5,7 @@ void main() {
   test("Random names list filled out correctly", () {
     final fewNames = getNames(5);
     expect(fewNames, hasLength(5));
+    expect(fewNames.where((e) => e.endsWith("1")), hasLength(0));
     final manyNames = getNames(105);
     expect(manyNames, hasLength(105));
     final manyNamesSet = Set<String>.from(manyNames);

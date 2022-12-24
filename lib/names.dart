@@ -1,6 +1,6 @@
 import 'dart:math';
 
-List<String> names = [
+List<String> _names = [
   "Aemilius",
   "Agrippa",
   "Albinus",
@@ -103,15 +103,21 @@ List<String> names = [
   "Virgilius"
 ];
 
+// iffy
+var _firstRun = true;
+
 List<String> getNames(int howMany) {
+  if (_firstRun) {
+    _names.shuffle();
+    _firstRun = false;
+  }
   var rounds = 1;
   List<String> result = [];
   while (result.length < howMany) {
     var needed = howMany - result.length;
-    names.shuffle();
     result.addAll([
-      for (var name in names.getRange(0, min(needed, names.length)))
-        name + (rounds > 0 ? " $rounds" : "")
+      for (final name in _names.getRange(0, min(needed, _names.length)))
+        name + (rounds > 1 ? " $rounds" : "")
     ]);
     rounds += 1;
   }
