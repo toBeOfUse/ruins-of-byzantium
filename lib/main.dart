@@ -31,6 +31,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// TODO: does this need to be stateful in and of itself or does the BattleFieldModel take care of that
 class BattleField extends StatefulWidget {
   const BattleField({Key? key}) : super(key: key);
 
@@ -49,8 +50,10 @@ class _BattleFieldState extends State<BattleField> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BattleFieldModel>(
-      builder: (context, field, child) => Column(
+    return Consumer<BattleFieldModel>(builder: (context, field, child) {
+      final generalPositions = List.generate(field.generals.length,
+          (index) => getAlignment(index, field.generals.length));
+      return Column(
         children: [
           Container(
             height: 50,
@@ -90,17 +93,22 @@ class _BattleFieldState extends State<BattleField> {
           Expanded(
             child: Stack(
               children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: BattleFieldBackgroundPainter(generalPositions),
+                  ),
+                ),
                 for (var i = 0; i < field.generals.length; i++)
                   AlignPositioned(
                     touch: Touch.middle,
-                    alignment: getAlignment(i, field.generals.length),
+                    alignment: generalPositions[i],
                     child: GeneralWidget(field.generals[i], i),
                   )
               ],
             ),
           ),
         ],
-      ),
-    );
+      );
+    });
   }
 }

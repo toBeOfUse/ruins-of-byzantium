@@ -58,3 +58,26 @@ class GeneralWidget extends StatelessWidget {
     );
   }
 }
+
+class BattleFieldBackgroundPainter extends CustomPainter {
+  // points are probably produced by calls to _BattleFieldState.getAlignment
+  List<Alignment> points;
+  BattleFieldBackgroundPainter(this.points);
+  @override
+  bool shouldRepaint(BattleFieldBackgroundPainter oldDelegate) =>
+      oldDelegate.points != points;
+  @override
+  void paint(Canvas canvas, Size size) {
+    print("am painting");
+    final scaledPoints = points.map(
+        (p) => Offset((p.x + 1) / 2 * size.width, (p.y + 1) / 2 * size.height));
+    print(size);
+    for (final pointA in scaledPoints) {
+      for (final pointB in scaledPoints) {
+        if (pointA != pointB) {
+          canvas.drawLine(pointA, pointB, Paint()..color = Colors.black);
+        }
+      }
+    }
+  }
+}
