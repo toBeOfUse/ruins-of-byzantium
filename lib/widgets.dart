@@ -78,7 +78,8 @@ class GeneralWidget extends StatelessWidget {
                 "${g.orders.map((o) => o.visualizeDecision()).join('')}",
               ),
             if (g.rank != Rank.commander)
-              Text("majority(ordersReceived) = ${g.finalDecision() ?? ''}")
+              Text(
+                  "majority(ordersReceived) = ${g.finalDecision()?.visualizeDecision() ?? ''}")
           ],
         ),
       ),
