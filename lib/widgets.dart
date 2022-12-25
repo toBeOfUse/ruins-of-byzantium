@@ -17,43 +17,69 @@ class GeneralWidget extends StatelessWidget {
         borderRadius: const BorderRadius.all(Radius.circular(5)),
         border: Border.all(color: Colors.black, width: 1),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            [g.name, if (g.rank == Rank.commander) "(Commander)"].join(" "),
-            style: const TextStyle(fontWeight: FontWeight.bold),
-            textScaleFactor: 1.2,
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Checkbox(
-                value: g.treacherous,
-                onChanged: (c) => field.setTreachery(i, c ?? false),
+      child: SizedBox(
+        width: 225,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              [g.name, if (g.rank == Rank.commander) "(Commander)"].join(" "),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              textScaleFactor: 1.2,
+            ),
+            const Divider(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Loyal and Reliable:"),
+                Checkbox(
+                  value: !g.treacherous,
+                  onChanged: (c) => field.setTreachery(i, !(c ?? false)),
+                ),
+              ],
+            ),
+            if (g.rank != Rank.lieutenant)
+              Opacity(
+                opacity: g.treacherous ? 0.7 : 1,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Tooltip(
+                    message: "Decide to retreat",
+                    verticalOffset: 15,
+                    child: Row(children: [
+                      Radio<Decision>(
+                        groupValue: g.ownDecision,
+                        value: Decision.retreat,
+                        onChanged: (value) =>
+                            {if (value != null) field.setDecision(i, value)},
+                      ),
+                      Text(decisionVisuals[Decision.retreat]!)
+                    ]),
+                  ),
+                  Tooltip(
+                    message: "Decide to attack",
+                    verticalOffset: 15,
+                    child: Row(children: [
+                      Radio<Decision>(
+                        groupValue: g.ownDecision,
+                        value: Decision.attack,
+                        onChanged: (value) =>
+                            {if (value != null) field.setDecision(i, value)},
+                      ),
+                      Text(decisionVisuals[Decision.attack]!)
+                    ]),
+                  ),
+                ]),
               ),
-              const Text("Traitor"),
-            ],
-          ),
-          if (g.rank != Rank.lieutenant)
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              Radio<Decision>(
-                groupValue: g.ownDecision,
-                value: Decision.attack,
-                onChanged: (value) =>
-                    {if (value != null) field.setDecision(i, value)},
+            if (g.rank != Rank.commander)
+              Text(
+                "Orders received: "
+                "${g.orders.map((o) => o.visualizeDecision()).join('')}",
               ),
-              Text(decisionVisuals[Decision.attack]!),
-              Radio<Decision>(
-                groupValue: g.ownDecision,
-                value: Decision.retreat,
-                onChanged: (value) =>
-                    {if (value != null) field.setDecision(i, value)},
-              ),
-              Text(decisionVisuals[Decision.retreat]!)
-            ])
-        ],
+            if (g.rank != Rank.commander)
+              Text("majority(ordersReceived) = ${g.finalDecision() ?? ''}")
+          ],
+        ),
       ),
     );
   }
@@ -68,10 +94,8 @@ class BattleFieldBackgroundPainter extends CustomPainter {
       oldDelegate.points != points;
   @override
   void paint(Canvas canvas, Size size) {
-    print("am painting");
     final scaledPoints = points.map(
         (p) => Offset((p.x + 1) / 2 * size.width, (p.y + 1) / 2 * size.height));
-    print(size);
     for (final pointA in scaledPoints) {
       for (final pointB in scaledPoints) {
         if (pointA != pointB) {

@@ -65,6 +65,7 @@ class _BattleFieldState extends State<BattleField> {
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text("Number of generals (n) = "),
                 SizedBox(
@@ -86,24 +87,85 @@ class _BattleFieldState extends State<BattleField> {
                     controller: _generalCountInput,
                   ),
                 ),
-                Text(", number of traitors (m) = ${field.traitorCount}"),
+                const Text(", number of traitors (m) = "),
+                Text(
+                  field.traitorCount.toString(),
+                  style: TextStyle(
+                      color: field.consistencyPossible
+                          ? Colors.black
+                          : Colors.red),
+                ),
               ],
             ),
           ),
           Expanded(
-            child: Stack(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: BattleFieldBackgroundPainter(generalPositions),
+                Container(
+                  width: 150,
+                  color: Colors.black12,
+                  child: Column(
+                    children: const [
+                      Text("Call sequence",
+                          textScaleFactor: 1.2,
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text("test1"),
+                      Text("test2"),
+                      Text("test3"),
+                    ],
                   ),
                 ),
-                for (var i = 0; i < field.generals.length; i++)
-                  AlignPositioned(
-                    touch: Touch.middle,
-                    alignment: generalPositions[i],
-                    child: GeneralWidget(field.generals[i], i),
-                  )
+                Expanded(
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter:
+                              BattleFieldBackgroundPainter(generalPositions),
+                        ),
+                      ),
+                      for (var i = 0; i < field.generals.length; i++)
+                        AlignPositioned(
+                          touch: Touch.middle,
+                          alignment: generalPositions[i],
+                          child: GeneralWidget(field.generals[i], i),
+                        )
+                    ],
+                  ),
+                )
+              ],
+            ),
+          ),
+          Container(
+            height: 50,
+            padding: const EdgeInsets.all(5),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.black),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed:
+                      field.state != BattleFieldState.waiting ? null : () {},
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [Icon(Icons.play_arrow), Text("Run")],
+                  ),
+                ),
+                const SizedBox(width: 20), // spacer
+                ElevatedButton(
+                  onPressed:
+                      field.state != BattleFieldState.running ? null : () {},
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [Icon(Icons.stop), Text("Stop")],
+                  ),
+                )
               ],
             ),
           ),
