@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import "package:generals/models.dart";
 import 'package:provider/provider.dart';
+import 'package:collection/collection.dart';
 
 class GeneralWidget extends StatelessWidget {
   final GeneralModel g;
@@ -91,7 +92,7 @@ class BattleFieldBackgroundPainter extends CustomPainter {
   BattleFieldBackgroundPainter(this.points);
   @override
   bool shouldRepaint(BattleFieldBackgroundPainter oldDelegate) =>
-      oldDelegate.points != points;
+      !oldDelegate.points.equals(points);
   @override
   void paint(Canvas canvas, Size size) {
     final scaledPoints = points.map(
