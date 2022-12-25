@@ -107,3 +107,24 @@ class BattleFieldBackgroundPainter extends CustomPainter {
     }
   }
 }
+
+class HistoryWidget extends StatelessWidget {
+  const HistoryWidget({
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BattleFieldModel>(builder: (context, field, child) {
+      return Column(
+        children: [
+          const Text("Call sequence",
+              textScaleFactor: 1.2,
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          for (final call in field.history)
+            Text("OM(${call.assumedM}) - cmdr ${call.actingCommander.name}")
+        ],
+      );
+    });
+  }
+}

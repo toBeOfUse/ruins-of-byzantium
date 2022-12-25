@@ -43,16 +43,9 @@ class _BattleFieldState extends State<BattleField> {
   final _generalCountInput = TextEditingController(
       text: BattleFieldModel.initialGeneralCount.toString());
 
-  static Alignment getAlignment(int i, int l, [double radius = 0.75]) {
-    final rotateBy = (pi * 2) / l * i - pi / 2;
-    return Alignment(cos(rotateBy) * radius, sin(rotateBy) * radius);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer<BattleFieldModel>(builder: (context, field, child) {
-      final generalPositions = List.generate(field.generals.length,
-          (index) => getAlignment(index, field.generals.length));
       return Column(
         children: [
           Container(
@@ -103,32 +96,24 @@ class _BattleFieldState extends State<BattleField> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  width: 150,
+                  width: 200,
                   color: Colors.black12,
-                  child: Column(
-                    children: const [
-                      Text("Call sequence",
-                          textScaleFactor: 1.2,
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      Text("test1"),
-                      Text("test2"),
-                      Text("test3"),
-                    ],
-                  ),
+                  child: HistoryWidget(),
                 ),
                 Expanded(
                   child: Stack(
                     children: [
                       Positioned.fill(
                         child: CustomPaint(
-                          painter:
-                              BattleFieldBackgroundPainter(generalPositions),
+                          painter: BattleFieldBackgroundPainter(field.generals
+                              .map((g) => g.visualPosition)
+                              .toList()),
                         ),
                       ),
                       for (var i = 0; i < field.generals.length; i++)
                         AlignPositioned(
                           touch: Touch.middle,
-                          alignment: generalPositions[i],
+                          alignment: field.generals[i].visualPosition,
                           child: GeneralWidget(field.generals[i], i),
                         )
                     ],
@@ -150,8 +135,9 @@ class _BattleFieldState extends State<BattleField> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ElevatedButton(
-                  onPressed:
-                      field.state != BattleFieldState.waiting ? null : () {},
+                  onPressed: field.state != BattleFieldState.waiting
+                      ? null
+                      : () => field.start(),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [Icon(Icons.play_arrow), Text("Run")],
@@ -159,11 +145,10 @@ class _BattleFieldState extends State<BattleField> {
                 ),
                 const SizedBox(width: 20), // spacer
                 ElevatedButton(
-                  onPressed:
-                      field.state != BattleFieldState.running ? null : () {},
+                  onPressed: () => field.reset(),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [Icon(Icons.stop), Text("Stop")],
+                    children: const [Icon(Icons.refresh), Text("Reset")],
                   ),
                 )
               ],

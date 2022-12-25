@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'dart:math';
+
+import 'package:collection/collection.dart';
+import 'package:flutter/widgets.dart';
 import 'package:generals/names.dart';
-import 'package:provider/provider.dart';
 
 enum Decision { attack, retreat, confuse }
 
@@ -11,17 +13,23 @@ Map<Decision, String> decisionVisuals = {
 
 enum Rank { commander, actingCommander, lieutenant }
 
+class CallModel {
+  GeneralModel actingCommander;
+  int depth;
+  int assumedM;
+  CallModel(this.actingCommander, this.depth, this.assumedM);
+}
+
 class OrderModel {
   Decision decision;
-  int senderIndex;
-  int receiverIndex;
+  CallModel call;
+  GeneralModel receiver;
   int mWhenSent;
   static int _confusingOrders = 0;
   // if order == Confuse, this order will be represented by an arbitrary
   // variable name
   String? variableName;
-  OrderModel(
-      this.decision, this.senderIndex, this.receiverIndex, this.mWhenSent) {
+  OrderModel(this.decision, this.call, this.receiver, this.mWhenSent) {
     if (decision == Decision.confuse) {
       var variable =
           String.fromCharCode("a".codeUnits[0] + (_confusingOrders % 26));
@@ -43,9 +51,11 @@ class GeneralModel {
   Rank rank;
   Decision ownDecision;
   List<OrderModel> orders = [];
-  GeneralModel(this.name, this.rank,
+  Alignment visualPosition;
+  GeneralModel(this.name, this.rank, this.visualPosition,
       [this.treacherous = false, this.ownDecision = Decision.retreat]);
-  GeneralModel.fromName(String name) : this(name, Rank.lieutenant);
+  GeneralModel.defaults(String name, Alignment pos)
+      : this(name, Rank.lieutenant, pos);
   void addOrder(OrderModel o) {
     // with decisions A (attack), R (retreat), and the arbitrary decisions
     // produced by traitors here represented as lowercase variables starting
@@ -78,23 +88,39 @@ class GeneralModel {
     });
   }
 
-  OrderModel finalDecision() {
+  OrderModel? finalDecision() {
     // finds the decision endorsed by a majority of orders by finding the median
     // decision received.
-    return orders[(orders.length / 2).floor()];
+    return orders.isNotEmpty ? orders[(orders.length / 2).floor()] : null;
   }
 }
+
+enum BattleFieldState { waiting, running }
 
 class BattleFieldModel extends ChangeNotifier {
   List<GeneralModel> generals = [];
   static const int initialGeneralCount = 4;
+  BattleFieldState state = BattleFieldState.waiting;
+  List<CallModel> history = [];
+  List<OrderModel> orderOutbox = [];
+  static int sendingTimeMS = 1000;
+
+  static Alignment getAlignment(int i, int l, [double radius = 0.75]) {
+    final rotateBy = (pi * 2) / l * i - pi / 2;
+    return Alignment(cos(rotateBy) * radius, sin(rotateBy) * radius);
+  }
+
   BattleFieldModel() : this.createGenerals(initialGeneralCount);
   BattleFieldModel.createGenerals(int generalCount) {
     setGeneralCount(generalCount);
     generals[0].rank = Rank.commander;
   }
+
   int get traitorCount =>
       generals.where((element) => element.treacherous).length;
+
+  bool get consistencyPossible => generals.length > traitorCount * 3;
+
   void setTreachery(int generalIndex, bool treachery) {
     generals[generalIndex].treacherous = treachery;
     notifyListeners();
@@ -114,8 +140,60 @@ class BattleFieldModel extends ChangeNotifier {
     } else if (newCount > generals.length) {
       generals.addAll(getNames(newCount)
           .getRange(generals.length, newCount)
-          .map(GeneralModel.fromName));
+          .mapIndexed(
+              (i, n) => GeneralModel.defaults(n, getAlignment(i, newCount))));
       notifyListeners();
     }
+  }
+
+  void reset() {
+    state = BattleFieldState.waiting;
+    history.clear();
+    for (final g in generals) {
+      g.orders.clear();
+    }
+    notifyListeners();
+  }
+
+  void start() {
+    if (state == BattleFieldState.running) {
+      return;
+    } else {
+      om(
+          traitorCount,
+          0,
+          generals[0],
+          generals.getRange(1, generals.length).toList(),
+          generals[0].ownDecision);
+    }
+  }
+
+  void om(int m, int depth, GeneralModel actingCommander,
+      List<GeneralModel> recipients, Decision toTransmit) async {
+    if (m != 0) {
+      print("not implemented yet");
+      return;
+    }
+    state = BattleFieldState.running;
+    if (actingCommander.rank == Rank.lieutenant) {
+      actingCommander.rank = Rank.actingCommander;
+    }
+    final call = CallModel(actingCommander, depth, m);
+    history.add(call);
+    for (final r in recipients) {
+      orderOutbox.add(OrderModel(toTransmit, call, r, m));
+    }
+    notifyListeners();
+    await Future.delayed(Duration(milliseconds: sendingTimeMS));
+    for (final o in orderOutbox) {
+      o.receiver.orders.add(o);
+    }
+    orderOutbox.clear();
+    state = BattleFieldState.waiting;
+    if (actingCommander.rank == Rank.actingCommander) {
+      actingCommander.rank = Rank.lieutenant;
+    }
+    // check IC1 and IC2
+    notifyListeners();
   }
 }
