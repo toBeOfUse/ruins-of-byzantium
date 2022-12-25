@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:generals/names.dart';
+import 'package:async/async.dart';
 
 enum Decision { attack, retreat, confuse }
 
@@ -17,7 +18,9 @@ class CallModel {
   GeneralModel actingCommander;
   int depth;
   int assumedM;
-  CallModel(this.actingCommander, this.depth, this.assumedM);
+  CallModel? parent;
+  bool highlighted = false;
+  CallModel(this.actingCommander, this.depth, this.assumedM, [this.parent]);
 }
 
 class OrderModel {
@@ -103,7 +106,8 @@ class BattleFieldModel extends ChangeNotifier {
   BattleFieldState state = BattleFieldState.waiting;
   List<CallModel> history = [];
   List<OrderModel> orderOutbox = [];
-  static int sendingTimeMS = 1000;
+  static int sendingTimeMS = 2500;
+  CancelableOperation? runningProcess;
 
   static Alignment getAlignment(int i, int l, [double radius = 0.75]) {
     final rotateBy = (pi * 2) / l * i - pi / 2;
@@ -146,11 +150,26 @@ class BattleFieldModel extends ChangeNotifier {
     }
   }
 
+  void highlightCall(CallModel? c) {
+    for (final call in history) {
+      call.highlighted = false;
+    }
+    while (c != null) {
+      c.highlighted = true;
+      c = c.parent;
+    }
+    notifyListeners();
+  }
+
   void reset() {
     state = BattleFieldState.waiting;
     history.clear();
     for (final g in generals) {
       g.orders.clear();
+    }
+    if (runningProcess != null) {
+      runningProcess?.cancel();
+      runningProcess = null;
     }
     notifyListeners();
   }
@@ -159,16 +178,16 @@ class BattleFieldModel extends ChangeNotifier {
     if (state == BattleFieldState.running) {
       return;
     } else {
-      om(
+      runningProcess = CancelableOperation.fromFuture(om(
           traitorCount,
           0,
           generals[0],
           generals.getRange(1, generals.length).toList(),
-          generals[0].ownDecision);
+          generals[0].ownDecision));
     }
   }
 
-  void om(int m, int depth, GeneralModel actingCommander,
+  Future<void> om(int m, int depth, GeneralModel actingCommander,
       List<GeneralModel> recipients, Decision toTransmit) async {
     if (m != 0) {
       print("not implemented yet");

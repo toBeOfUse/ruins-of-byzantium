@@ -1,7 +1,4 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:align_positioned/align_positioned.dart';
 import 'package:flutter/services.dart';
 import 'package:generals/models.dart';
 import 'package:generals/widgets.dart';
@@ -25,21 +22,21 @@ class MyApp extends StatelessWidget {
       ),
       home: ChangeNotifierProvider(
         create: (context) => BattleFieldModel(),
-        child: const Scaffold(body: BattleField()),
+        child: const Scaffold(body: BattleFieldContainer()),
       ),
     );
   }
 }
 
 // TODO: does this need to be stateful in and of itself or does the BattleFieldModel take care of that
-class BattleField extends StatefulWidget {
-  const BattleField({Key? key}) : super(key: key);
+class BattleFieldContainer extends StatefulWidget {
+  const BattleFieldContainer({Key? key}) : super(key: key);
 
   @override
-  State<BattleField> createState() => _BattleFieldState();
+  State<BattleFieldContainer> createState() => _BattleFieldContainerState();
 }
 
-class _BattleFieldState extends State<BattleField> {
+class _BattleFieldContainerState extends State<BattleFieldContainer> {
   final _generalCountInput = TextEditingController(
       text: BattleFieldModel.initialGeneralCount.toString());
 
@@ -98,26 +95,10 @@ class _BattleFieldState extends State<BattleField> {
                 Container(
                   width: 200,
                   color: Colors.black12,
-                  child: HistoryWidget(),
+                  child: const HistoryWidget(),
                 ),
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: CustomPaint(
-                          painter: BattleFieldBackgroundPainter(field.generals
-                              .map((g) => g.visualPosition)
-                              .toList()),
-                        ),
-                      ),
-                      for (var i = 0; i < field.generals.length; i++)
-                        AlignPositioned(
-                          touch: Touch.middle,
-                          alignment: field.generals[i].visualPosition,
-                          child: GeneralWidget(field.generals[i], i),
-                        )
-                    ],
-                  ),
+                const Expanded(
+                  child: BattleFieldWidget(),
                 )
               ],
             ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import "package:generals/models.dart";
 import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
+import 'package:align_positioned/align_positioned.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class GeneralWidget extends StatelessWidget {
   final GeneralModel g;
@@ -73,9 +75,12 @@ class GeneralWidget extends StatelessWidget {
                 ]),
               ),
             if (g.rank != Rank.commander)
-              Text(
-                "Orders received: "
-                "${g.orders.map((o) => o.visualizeDecision()).join('')}",
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Orders received: "),
+                  ...g.orders.map((o) => OrderWidget(o))
+                ],
               ),
             if (g.rank != Rank.commander)
               Text(
@@ -89,7 +94,7 @@ class GeneralWidget extends StatelessWidget {
 
 class BattleFieldBackgroundPainter extends CustomPainter {
   // points are probably produced by calls to _BattleFieldState.getAlignment
-  List<Alignment> points;
+  final List<Alignment> points;
   BattleFieldBackgroundPainter(this.points);
   @override
   bool shouldRepaint(BattleFieldBackgroundPainter oldDelegate) =>
@@ -108,6 +113,49 @@ class BattleFieldBackgroundPainter extends CustomPainter {
   }
 }
 
+class BattleFieldWidget extends StatelessWidget {
+  const BattleFieldWidget({
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BattleFieldModel>(builder: (context, field, child) {
+      return Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: BattleFieldBackgroundPainter(
+                  field.generals.map((g) => g.visualPosition).toList()),
+            ),
+          ),
+          for (final order in field.orderOutbox)
+            Text(
+              order.visualizeDecision(),
+              textScaleFactor: 2.0,
+            ).animate().custom(
+                duration:
+                    Duration(milliseconds: BattleFieldModel.sendingTimeMS),
+                builder: (context, value, child) {
+                  return Align(
+                      alignment: Alignment.lerp(
+                          order.call.actingCommander.visualPosition,
+                          order.receiver.visualPosition,
+                          value)!,
+                      child: child);
+                }),
+          for (var i = 0; i < field.generals.length; i++)
+            AlignPositioned(
+              touch: Touch.middle,
+              alignment: field.generals[i].visualPosition,
+              child: GeneralWidget(field.generals[i], i),
+            )
+        ],
+      );
+    });
+  }
+}
+
 class HistoryWidget extends StatelessWidget {
   const HistoryWidget({
     Key? key,
@@ -117,13 +165,39 @@ class HistoryWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<BattleFieldModel>(builder: (context, field, child) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text("Call sequence",
-              textScaleFactor: 1.2,
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          Container(
+            padding: const EdgeInsets.all(5.0),
+            child: const Text("Call sequence",
+                textScaleFactor: 1.2,
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
           for (final call in field.history)
-            Text("OM(${call.assumedM}) - cmdr ${call.actingCommander.name}")
+            Container(
+                color: call.highlighted ? Colors.white : Colors.transparent,
+                padding: const EdgeInsets.all(5.0),
+                child: Text(
+                    "OM(${call.assumedM}) - cmdr ${call.actingCommander.name}"))
         ],
+      );
+    });
+  }
+}
+
+class OrderWidget extends StatelessWidget {
+  final OrderModel order;
+  const OrderWidget(this.order, {Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<BattleFieldModel>(builder: (context, field, child) {
+      return Material(
+        child: InkWell(
+          hoverColor: Colors.black12,
+          onTap: () => field.highlightCall(order.call),
+          child: Text(order.visualizeDecision()),
+        ),
       );
     });
   }
