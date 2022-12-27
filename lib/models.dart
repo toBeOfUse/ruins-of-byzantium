@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:generals/names.dart';
-import 'package:async/async.dart';
 
 enum Decision { attack, retreat, confuse }
 
@@ -50,6 +49,10 @@ class OrderModel {
   String visualizeDecision() {
     return decisionVisuals[decision] ?? variableName!;
   }
+
+  static resetVariableNames() {
+    _confusingOrders = 0;
+  }
 }
 
 class GeneralModel {
@@ -76,7 +79,7 @@ class GeneralModel {
     // in finalDecision lets us do that.
     orders.add(o);
     orders.sort((a, b) {
-      if (a.decision == b.decision) {
+      if (a.decision == b.decision && a.decision != Decision.confuse) {
         return 0;
       } else if (a.decision == Decision.attack) {
         return -1;
@@ -110,8 +113,10 @@ class BattleFieldModel extends ChangeNotifier {
   BattleFieldState state = BattleFieldState.waiting;
   List<CallModel> history = [];
   List<OrderModel> orderOutbox = [];
-  static int sendingTimeMS = 2500;
-  CancelableOperation? runningProcess;
+  static int sendingTimeMS = 1500;
+  // if this changes during the async function that initiates state changes
+  // after a delay, then that function will know to instead cancel itself and return
+  int timesReset = 0;
 
   static Alignment getAlignment(int i, int l, [double radius = 0.75]) {
     final rotateBy = (pi * 2) / l * i - pi / 2;
@@ -130,26 +135,42 @@ class BattleFieldModel extends ChangeNotifier {
   bool get consistencyPossible => generals.length > traitorCount * 3;
 
   void setTreachery(int generalIndex, bool treachery) {
-    generals[generalIndex].treacherous = treachery;
-    notifyListeners();
+    if (state != BattleFieldState.running) {
+      reset();
+      generals[generalIndex].treacherous = treachery;
+      notifyListeners();
+    }
   }
 
   void setDecision(int generalIndex, Decision d) {
-    generals[generalIndex].ownDecision = d;
-    notifyListeners();
+    if (state != BattleFieldState.running) {
+      generals[generalIndex].ownDecision = d;
+      notifyListeners();
+    }
+  }
+
+  void setGeneralPositions() {
+    generals.forEachIndexed((index, element) =>
+        element.visualPosition = getAlignment(index, generals.length));
   }
 
   void setGeneralCount(int newCount) {
-    if (newCount < 1 || newCount > 9) {
+    if (newCount < 1 || newCount > 9 || state == BattleFieldState.running) {
       return;
     } else if (newCount < generals.length) {
       generals = generals.getRange(0, newCount).toList();
+      setGeneralPositions();
+      reset();
       notifyListeners();
     } else if (newCount > generals.length) {
       generals.addAll(getNames(newCount)
           .getRange(generals.length, newCount)
-          .mapIndexed(
-              (i, n) => GeneralModel.defaults(n, getAlignment(i, newCount))));
+          .mapIndexed((index, name) => GeneralModel.defaults(
+              name,
+              // placeholder position to keep type checker happy :/
+              const Alignment(0, 0))));
+      setGeneralPositions();
+      reset();
       notifyListeners();
     }
   }
@@ -168,13 +189,15 @@ class BattleFieldModel extends ChangeNotifier {
   void reset() {
     state = BattleFieldState.waiting;
     history.clear();
+    orderOutbox.clear();
     for (final g in generals) {
       g.orders.clear();
+      if (g.rank == Rank.actingCommander) {
+        g.rank = Rank.lieutenant;
+      }
     }
-    if (runningProcess != null) {
-      runningProcess?.cancel();
-      runningProcess = null;
-    }
+    OrderModel.resetVariableNames();
+    timesReset++;
     notifyListeners();
   }
 
@@ -182,34 +205,56 @@ class BattleFieldModel extends ChangeNotifier {
     if (state == BattleFieldState.running) {
       return;
     } else {
-      runningProcess = CancelableOperation.fromFuture(om(
+      om(
           traitorCount,
           0,
           generals[0],
           generals.getRange(1, generals.length).toList(),
-          generals[0].ownDecision));
+          null,
+          null,
+          timesReset);
     }
   }
 
-  Future<void> om(int m, int depth, GeneralModel actingCommander,
-      List<GeneralModel> recipients, Decision toTransmit) async {
-    if (m != 0) {
-      print("not implemented yet");
+  Future<void> om(
+      int m,
+      int depth,
+      GeneralModel actingCommander,
+      List<GeneralModel> recipients,
+      OrderModel? receivedOrder,
+      CallModel? parentCall,
+      int resetID) async {
+    if (timesReset != resetID) {
       return;
     }
+
     state = BattleFieldState.running;
     if (actingCommander.rank == Rank.lieutenant) {
       actingCommander.rank = Rank.actingCommander;
     }
-    final call = CallModel(actingCommander, depth, m);
+    final call = CallModel(actingCommander, depth, m, parentCall);
+    final sendingDecision =
+        receivedOrder?.decision ?? actingCommander.ownDecision;
     history.add(call);
+    assert(orderOutbox.isEmpty);
+    Map<GeneralModel, OrderModel> ordersByRecipient = {};
     for (final r in recipients) {
-      orderOutbox.add(OrderModel(toTransmit, call, r, m));
+      final rWillReceive = OrderModel(
+          actingCommander.treacherous ? Decision.confuse : sendingDecision,
+          r,
+          m,
+          call,
+          receivedOrder?.variableName);
+      ordersByRecipient[r] = rWillReceive;
+      orderOutbox.add(rWillReceive);
     }
     notifyListeners();
     await Future.delayed(Duration(milliseconds: sendingTimeMS));
+    if (timesReset != resetID) {
+      return;
+    }
     for (final o in orderOutbox) {
-      o.receiver.orders.add(o);
+      o.receiver.addOrder(o);
     }
     orderOutbox.clear();
     state = BattleFieldState.waiting;
@@ -218,5 +263,17 @@ class BattleFieldModel extends ChangeNotifier {
     }
     // check IC1 and IC2
     notifyListeners();
+    if (m > 0) {
+      for (final general in recipients) {
+        await om(
+            m - 1,
+            depth + 1,
+            general,
+            recipients.where((r) => r != general).toList(),
+            ordersByRecipient[general]!,
+            call,
+            resetID);
+      }
+    }
   }
 }
