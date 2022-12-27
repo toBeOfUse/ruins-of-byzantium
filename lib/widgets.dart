@@ -27,7 +27,13 @@ class GeneralWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              [g.name, if (g.rank == Rank.commander) "(Commander)"].join(" "),
+              [
+                g.name,
+                if (g.rank == Rank.commander)
+                  "(Cmdr.)"
+                else if (g.rank == Rank.actingCommander)
+                  "(Acting Cmdr.)"
+              ].join(" "),
               style: const TextStyle(fontWeight: FontWeight.bold),
               textScaleFactor: 1.2,
             ),
@@ -42,7 +48,7 @@ class GeneralWidget extends StatelessWidget {
                 ),
               ],
             ),
-            if (g.rank != Rank.lieutenant)
+            if (g.rank == Rank.commander)
               Opacity(
                 opacity: g.treacherous ? 0.7 : 1,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -75,16 +81,16 @@ class GeneralWidget extends StatelessWidget {
                 ]),
               ),
             if (g.rank != Rank.commander)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
                 children: [
                   const Text("Orders received: "),
                   ...g.orders.map((o) => OrderWidget(o))
                 ],
               ),
             if (g.rank != Rank.commander)
-              Text(
-                  "majority(ordersReceived) = ${g.finalDecision()?.visualizeDecision() ?? ''}")
+              Text("majority(ordersReceived) = " +
+                  (g.finalDecision()?.visualizeDecision() ?? ''))
           ],
         ),
       ),
@@ -120,39 +126,42 @@ class BattleFieldWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<BattleFieldModel>(builder: (context, field, child) {
-      return Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: BattleFieldBackgroundPainter(
-                  field.generals.map((g) => g.visualPosition).toList()),
-            ),
+    final field = Provider.of<BattleFieldModel>(context);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: CustomPaint(
+            painter: BattleFieldBackgroundPainter(
+                field.generals.map((g) => g.visualPosition).toList()),
           ),
-          for (final order in field.orderOutbox)
-            Text(
-              order.visualizeDecision(),
-              textScaleFactor: 2.0,
-            ).animate().custom(
-                duration:
-                    Duration(milliseconds: BattleFieldModel.sendingTimeMS),
-                builder: (context, value, child) {
-                  return Align(
-                      alignment: Alignment.lerp(
-                          order.call.actingCommander.visualPosition,
-                          order.receiver.visualPosition,
-                          value)!,
-                      child: child);
-                }),
-          for (var i = 0; i < field.generals.length; i++)
-            AlignPositioned(
-              touch: Touch.middle,
-              alignment: field.generals[i].visualPosition,
-              child: GeneralWidget(field.generals[i], i),
-            )
-        ],
-      );
-    });
+        ),
+        for (final order in field.orderOutbox)
+          Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                order.visualizeDecision(),
+                textScaleFactor: 2.0,
+              )).animate(key: Key(order.hashCode.toString())).custom(
+              duration: Duration(milliseconds: BattleFieldModel.sendingTimeMS),
+              builder: (context, value, child) {
+                return Align(
+                    alignment: Alignment.lerp(
+                        order.call.actingCommander.visualPosition,
+                        order.receiver.visualPosition,
+                        value)!,
+                    child: child);
+              }),
+        for (var i = 0; i < field.generals.length; i++)
+          AlignPositioned(
+            touch: Touch.middle,
+            alignment: field.generals[i].visualPosition,
+            child: GeneralWidget(field.generals[i], i),
+          )
+      ],
+    );
   }
 }
 
@@ -164,22 +173,27 @@ class HistoryWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<BattleFieldModel>(builder: (context, field, child) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(5.0),
-            child: const Text("Call sequence",
-                textScaleFactor: 1.2,
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-          for (final call in field.history)
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Container(
-                color: call.highlighted ? Colors.white : Colors.transparent,
-                padding: const EdgeInsets.all(5.0),
-                child: Text(
-                    "OM(${call.assumedM}) - cmdr ${call.actingCommander.name}"))
-        ],
+              padding: const EdgeInsets.all(5.0),
+              child: const Text("Call sequence",
+                  textScaleFactor: 1.2,
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            for (final call in field.history)
+              Container(
+                  color: call.highlighted ? Colors.white : Colors.transparent,
+                  padding: const EdgeInsets.all(5.0),
+                  child: Text("OM(${call.assumedM}) - " +
+                      (call.actingCommander.rank == Rank.commander
+                          ? "Cmdr. "
+                          : "") +
+                      call.actingCommander.name))
+          ],
+        ),
       );
     });
   }
