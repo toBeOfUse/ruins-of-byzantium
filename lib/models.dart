@@ -32,12 +32,16 @@ class OrderModel {
   // if order == Confuse, this order will be represented by an arbitrary
   // variable name
   String? variableName;
-  OrderModel(this.decision, this.call, this.receiver, this.mWhenSent) {
-    if (decision == Decision.confuse) {
+  OrderModel(this.decision, this.receiver, this.mWhenSent, this.call,
+      [this.variableName]) {
+    if (decision == Decision.confuse && variableName == null) {
       var variable =
           String.fromCharCode("a".codeUnits[0] + (_confusingOrders % 26));
       if (_confusingOrders > 25) {
-        variable += (_confusingOrders / 25).floor().toString();
+        final primes = (_confusingOrders / 25).floor();
+        for (var i = 0; i < primes; i++) {
+          variable += "'";
+        }
       }
       variableName = variable;
       _confusingOrders++;
