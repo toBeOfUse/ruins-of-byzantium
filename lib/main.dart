@@ -105,14 +105,34 @@ class _BattleFieldContainerState extends State<BattleFieldContainer> {
               ],
             ),
           ),
-          Container(
-            height: 50,
-            padding: const EdgeInsets.all(5),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.black),
-              ),
-            ),
+          const ControlsRow(),
+        ],
+      );
+    });
+  }
+}
+
+class ControlsRow extends StatelessWidget {
+  const ControlsRow({
+    Key? key,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final field = Provider.of<BattleFieldModel>(context);
+    final icButtonsStyle = ElevatedButton.styleFrom(
+        backgroundColor: Colors.white, foregroundColor: Colors.black);
+    return Container(
+      height: 50,
+      padding: const EdgeInsets.all(5),
+      decoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.black),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Center(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -137,8 +157,57 @@ class _BattleFieldContainerState extends State<BattleFieldContainer> {
               ],
             ),
           ),
+          Opacity(
+            opacity: field.resultsAvailable ? 1.0 : 0.6,
+            child: Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        final s = field.getSuccess();
+                        if (s != null) {
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) => ExplanationCard(
+                                  "IC1", s.ic1, s.ic1Explanation));
+                        }
+                      },
+                      style: icButtonsStyle,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(getICIcon(field.getSuccess()?.ic1)),
+                          const Text("IC1")
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 15), // spacer
+                    ElevatedButton(
+                      onPressed: () {
+                        final s = field.getSuccess();
+                        if (s != null) {
+                          showModalBottomSheet(
+                              context: context,
+                              builder: (context) => ExplanationCard(
+                                  "IC2", s.ic2, s.ic2Explanation));
+                        }
+                      },
+                      style: icButtonsStyle,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(getICIcon(field.getSuccess()?.ic2)),
+                          const Text("IC2")
+                        ],
+                      ),
+                    )
+                  ],
+                )),
+          )
         ],
-      );
-    });
+      ),
+    );
   }
 }
