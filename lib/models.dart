@@ -20,6 +20,17 @@ class CallModel {
   CallModel? parent;
   bool highlighted = false;
   CallModel(this.actingCommander, this.depth, this.assumedM, [this.parent]);
+  bool generalInHistory(GeneralModel g) {
+    GeneralModel? cmdr = actingCommander;
+    while (cmdr != null) {
+      if (cmdr == g) {
+        return true;
+      } else {
+        cmdr = parent?.actingCommander;
+      }
+    }
+    return true;
+  }
 }
 
 class OrderModel {
@@ -46,12 +57,17 @@ class OrderModel {
       _confusingOrders++;
     }
   }
+
   String visualizeDecision() {
     return decisionVisuals[decision] ?? variableName!;
   }
 
   static resetVariableNames() {
     _confusingOrders = 0;
+  }
+
+  bool samePlan(OrderModel? other) {
+    return other != null && visualizeDecision() == other.visualizeDecision();
   }
 }
 
@@ -66,6 +82,11 @@ class GeneralModel {
       [this.treacherous = false, this.ownDecision = Decision.retreat]);
   GeneralModel.defaults(String name, Alignment pos)
       : this(name, Rank.lieutenant, pos);
+  String get fullName => [
+        if (rank == Rank.commander) "Cmdr.",
+        name,
+        if (treacherous) "😈"
+      ].join(" ");
   void addOrder(OrderModel o) {
     // with decisions A (attack), R (retreat), and the arbitrary decisions
     // produced by traitors here represented as lowercase variables starting
@@ -105,6 +126,12 @@ class GeneralModel {
   }
 }
 
+class SuccessModel {
+  bool ic1, ic2;
+  String ic1Explanation, ic2Explanation;
+  SuccessModel(this.ic1, this.ic1Explanation, this.ic2, this.ic2Explanation);
+}
+
 enum BattleFieldState { waiting, running }
 
 class BattleFieldModel extends ChangeNotifier {
@@ -117,6 +144,7 @@ class BattleFieldModel extends ChangeNotifier {
   // if this changes during the async function that initiates state changes
   // after a delay, then that function will know to instead cancel itself and return
   int timesReset = 0;
+  bool resultsAvailable = false;
 
   static Alignment getAlignment(int i, int l, [double radius = 0.75]) {
     final rotateBy = (pi * 2) / l * i - pi / 2;
@@ -126,13 +154,15 @@ class BattleFieldModel extends ChangeNotifier {
   BattleFieldModel() : this.createGenerals(initialGeneralCount);
   BattleFieldModel.createGenerals(int generalCount) {
     setGeneralCount(generalCount);
-    generals[0].rank = Rank.commander;
+    commander.rank = Rank.commander;
   }
 
   int get traitorCount =>
       generals.where((element) => element.treacherous).length;
 
   bool get consistencyPossible => generals.length > traitorCount * 3;
+
+  GeneralModel get commander => generals[0];
 
   void setTreachery(int generalIndex, bool treachery) {
     if (state != BattleFieldState.running) {
@@ -198,25 +228,24 @@ class BattleFieldModel extends ChangeNotifier {
     }
     OrderModel.resetVariableNames();
     timesReset++;
+    resultsAvailable = false;
     notifyListeners();
   }
 
-  void start() {
+  void start() async {
     if (state == BattleFieldState.running) {
       return;
     } else {
-      om(
-          traitorCount,
-          0,
-          generals[0],
-          generals.getRange(1, generals.length).toList(),
-          null,
-          null,
-          timesReset);
+      final resetID = timesReset;
+      await om(traitorCount, 0, commander,
+          generals.getRange(1, generals.length).toList(), null, null, resetID);
+      if (timesReset == resetID) {
+        resultsAvailable = true;
+      }
     }
   }
 
-  Future<void> om(
+  Future om(
       int m,
       int depth,
       GeneralModel actingCommander,
@@ -244,7 +273,7 @@ class BattleFieldModel extends ChangeNotifier {
           r,
           m,
           call,
-          receivedOrder?.variableName);
+          actingCommander.treacherous ? null : receivedOrder?.variableName);
       ordersByRecipient[r] = rWillReceive;
       orderOutbox.add(rWillReceive);
     }
@@ -269,11 +298,65 @@ class BattleFieldModel extends ChangeNotifier {
             m - 1,
             depth + 1,
             general,
-            recipients.where((r) => r != general).toList(),
+            recipients
+                .where((r) => r != general && actingCommander != general)
+                .toList(),
             ordersByRecipient[general]!,
             call,
             resetID);
       }
     }
+  }
+
+  SuccessModel? getSuccess() {
+    if (!resultsAvailable) {
+      return null;
+    }
+    var ic1 = true;
+    var ic1Explanation = "All loyal lieutenants obey the same order.";
+    final loyalLieutenants = generals
+        .where(
+            (element) => !element.treacherous && element.rank != Rank.commander)
+        .toList();
+    if (loyalLieutenants.length < 2) {
+      ic1Explanation +=
+          " (There are so few loyal lieutenants that this is trivially true.)";
+    } else {
+      for (var i = 1; i < loyalLieutenants.length; i++) {
+        final d1 = loyalLieutenants[i - 1].finalDecision();
+        final d2 = loyalLieutenants[i].finalDecision();
+        if (d1 == null || d2 == null) {
+          ic1 = false;
+          ic1Explanation = "Not all generals even have decisions";
+        } else if (!d1.samePlan(d2)) {
+          ic1 = false;
+          ic1Explanation =
+              "Not all loyal lieutenants are obeying the same order"
+              " (ex: ${loyalLieutenants[i].name}"
+              " disagrees with ${loyalLieutenants[i - 1].name})";
+          break;
+        }
+      }
+    }
+    var ic2 = true;
+    var ic2Explanation = "If the commanding general is loyal, then every loyal"
+        " lieutenant obeys the order he sends.";
+    if (commander.treacherous) {
+      ic2Explanation +=
+          " (The commander is not loyal, so this is trivially true.)";
+    } else {
+      for (final general in generals) {
+        if (general.rank != Rank.commander &&
+            !general.treacherous &&
+            general.finalDecision()?.decision != commander.ownDecision) {
+          ic2 = false;
+          ic2Explanation =
+              "Not all loyal lieutenants obey the loyal commander's decision "
+              "(ex: Lt. ${general.name})";
+          break;
+        }
+      }
+    }
+    return SuccessModel(ic1, ic1Explanation, ic2, ic2Explanation);
   }
 }

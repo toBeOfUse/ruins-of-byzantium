@@ -21,19 +21,14 @@ class GeneralWidget extends StatelessWidget {
         border: Border.all(color: Colors.black, width: 1),
       ),
       child: SizedBox(
-        width: 225,
+        width: 250,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              [
-                g.name,
-                if (g.rank == Rank.commander)
-                  "(Cmdr.)"
-                else if (g.rank == Rank.actingCommander)
-                  "(Acting Cmdr.)"
-              ].join(" "),
+              g.fullName +
+                  (g.rank == Rank.actingCommander ? " (Acting Cmdr.)" : ""),
               style: const TextStyle(fontWeight: FontWeight.bold),
               textScaleFactor: 1.2,
             ),
@@ -90,7 +85,9 @@ class GeneralWidget extends StatelessWidget {
               ),
             if (g.rank != Rank.commander)
               Text("majority(ordersReceived) = " +
-                  (g.finalDecision()?.visualizeDecision() ?? ''))
+                  (field.resultsAvailable && g.finalDecision() != null
+                      ? g.finalDecision()!.visualizeDecision()
+                      : ''))
           ],
         ),
       ),
@@ -187,11 +184,8 @@ class HistoryWidget extends StatelessWidget {
               Container(
                   color: call.highlighted ? Colors.white : Colors.transparent,
                   padding: const EdgeInsets.all(5.0),
-                  child: Text("OM(${call.assumedM}) - " +
-                      (call.actingCommander.rank == Rank.commander
-                          ? "Cmdr. "
-                          : "") +
-                      call.actingCommander.name))
+                  child: Text(
+                      "OM(${call.assumedM}) - ${call.actingCommander.fullName}"))
           ],
         ),
       );
@@ -214,5 +208,50 @@ class OrderWidget extends StatelessWidget {
         ),
       );
     });
+  }
+}
+
+IconData getICIcon(bool? conditionState) {
+  if (conditionState == null) {
+    return Icons.question_mark;
+  } else if (conditionState) {
+    return Icons.check;
+  } else {
+    return Icons.close;
+  }
+}
+
+class ExplanationCard extends StatelessWidget {
+  final String title;
+  final bool status;
+  final String explanation;
+  const ExplanationCard(this.title, this.status, this.explanation, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      heightFactor: 1.5,
+      child: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(getICIcon(status),
+                    color: status ? Colors.green : Colors.red),
+                Text(title,
+                    textScaleFactor: 1.5,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            Text(explanation)
+          ],
+        ),
+      ),
+    );
   }
 }
