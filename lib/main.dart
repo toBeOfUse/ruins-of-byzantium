@@ -17,9 +17,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'The Byzantine Generals Problem',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
-      ),
+          primarySwatch: Colors.blue,
+          scaffoldBackgroundColor: Colors.white,
+          textTheme: Theme.of(context).textTheme.apply(
+                fontSizeFactor: 1.25,
+              )),
       home: ChangeNotifierProvider(
         create: (context) => BattleFieldModel(),
         child: const Scaffold(body: BattleFieldContainer()),
